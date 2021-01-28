@@ -1,0 +1,202 @@
+---
+title: "Wellbeing Survey Report"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    keep_tex: yes
+    toc: yes
+    toc_depth: 3
+    fig_caption: yes
+    latex_engine: xelatex
+fontsize: 10pt
+mainfont: Verdana
+sansfont: Verdana
+monofont: Verdana
+geometry: left = 2cm, right = 2cm, top = 2cm, bottom = 2cm
+---
+  
+```{r, setup, echo=FALSE}
+
+library(pacman)
+pacman::p_load(knitr,
+               dplyr,
+               ggthemes,
+               tidyr,
+               purrr,
+               gsheet,
+               tidyselect,
+               lubridate,
+               ggplot2,
+               viridis,
+               kableExtra)
+
+options(tinytex.verbose = TRUE)
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE)
+
+```
+
+
+```{r, load data}
+
+filename <- paste0("../data/",Sys.Date(),"_archive.rds") # Create a string for the path to the archive file 
+
+#The code to read the archive in is very straightforward
+archive<-readr::read_rds(path = filename)
+
+```
+
+
+```{r, functions, echo=FALSE}
+#This chunk contains a couple of helper functions we use later for calculating metrics, the standard error and the number of responses.
+
+not_na <- function(column){ #This function counts how many results in a column are not NA.
+  sum(!is.na(column))
+}
+
+se <- function(x, na_rm = TRUE) { #This function calculates standard error.
+  sqrt(stats::var(x, na.rm = na_rm) / length(x))
+}
+
+
+
+```
+
+
+\newpage
+
+# Introduction
+
+The wellbeing survey was created to capture how the data lab team were feeling and how they were coping in and outside of the workplace. It also provided the team an anonymous way to express any concerns or suggestions directly to management and senior leadership teams.
+
+The response rate has been relatively high each week and comments have been provided which have been fed directly back to SLT.
+
+Since the wellbeing survey started, more teams within NDEC have shown interest in rolling the survey out to their own team members. 
+
+# Responses
+
+The survey was first sent out on 4/11/2020 and then on a weekly basis. More people have been added to distribution list. The table below shows how many people have responded to the survey each week. 
+
+```{r responses}
+
+ question_response_rate<- archive$data%>%
+   group_by(survey_date, survey_month, question_number)%>%
+   summarise(count = not_na(response))
+
+survey_response_rate<-question_response_rate%>%
+  summarise(response_n = max(count))
+
+
+ monthly_response_rate<-survey_response_rate%>%
+   group_by(survey_month)%>%
+   summarise(average_response = mean(response_n),
+             ymax = average_response + se(response_n),
+             ymin = average_response - se(response_n))
+
+
+responsetbl <- knitr::kable(survey_response_rate, booktabs= T, linesep="", caption = "Count of responses per survey")
+responsetbl<- responsetbl %>% column_spec(1:2,border_left = T, border_right = T) %>%
+  kable_styling(latex_options = "striped", font_size = 12)%>%
+  kable_styling(latex_options = "HOLD_position")
+
+
+responsetbl
+
+```
+
+
+
+``` {r, monthly trend}
+
+monthly_response_rate%>%
+  drop_na()%>%
+  ggplot(aes(x=survey_month,
+             y=average_response,
+             ymin = ymin,
+             ymax=ymax,
+             colour = "Mean response",
+             fill= "Standard Error"))+
+  geom_ribbon(alpha=0.3)+
+  geom_line()+
+  theme(legend.title = element_blank())
+```
+
+
+
+# Plots
+
+``` {r, plot_functions}
+
+##I'm not sure about these plots, I find them a bit difficult to read
+
+line_plot <- function(data){
+  ggplot(data, aes(x=survey_date, y=count, color=response)) +
+  geom_line() +
+  ggtitle(unique(data$question_name)) +
+  theme_minimal()+
+  scale_color_viridis_d()
+}
+
+
+question_response_rate<- archive$data%>%
+  filter(question_number!="q7",
+         question_number!="q1_2")%>%
+  group_by(survey_date, score, question_number, question_name, response)%>%
+  summarise(count = not_na(response))%>%
+  drop_na()%>%
+  group_by(question_number)%>%
+  group_split()
+
+for (i in seq_along(question_response_rate)) {
+  print(line_plot(question_response_rate[[i]]))
+}
+
+
+
+```
+
+# Score over time
+
+
+``` {r, likert, warning=FALSE, message=FALSE}
+
+mean_weekly_score <- archive$data%>%
+    filter(question_number!="q7",
+         question_number!="q1_2")%>%
+  group_by(survey_date,
+           question_number,
+           question_name)%>%
+  summarise(mean_score = mean(score, na.rm = T),
+            ymax = mean_score + se(score, na_rm = T),
+            ymin = mean_score - se(score, na_rm = T),
+            max = max(score),
+            min = min(score))%>%
+  ungroup()%>%
+  group_by(question_number)%>%
+  drop_na()%>%
+  group_split()
+
+
+ribbon_plot<-function(data){
+  ggplot(data,aes(x=survey_date,
+             y=mean_score,
+             ymax=ymax,
+             ymin=ymin,
+             fill=question_number))+
+  geom_ribbon(aes(alpha=0.3))+
+  geom_line()+
+  geom_line(linetype="dotted", aes(y=max))+
+  geom_line(linetype="dotted",aes(y=min))+
+  scale_fill_viridis_d()+
+    ylim(0,6)+
+    theme(legend.position = "none")+
+    ggtitle(unique(data$question_name))+
+    labs(caption = "Solid line shows mean, shaded area shows standard error, dotted lines are min and max values.")
+}
+
+for (i in seq_along(mean_weekly_score)) {
+  print(ribbon_plot(mean_weekly_score[[i]]))
+}
+
+```
+
