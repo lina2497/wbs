@@ -25,8 +25,13 @@ new_urls <-
     "https://docs.google.com/spreadsheets/d/1LAXQzcCV8uho2wzmV8MZT4UmamtfrvzzEkb970FSu7w/edit?usp=sharing"
     
   )
+
+
 # You can call the process_survey function directly and supply a list of urls.
 df<-process_survey(new_urls,archive)
+
+#df<- process_survey(append(new_urls, archive$urls)) you can run this if you want to force reprocessing all the urls in the archive
+
 
 #Create filename for today's archive
 todays_archive <- paste0("data/",Sys.Date(),"_archive.rds") # Create a string for the path to the archive file 

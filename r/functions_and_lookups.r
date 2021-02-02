@@ -24,7 +24,12 @@ question_lookup<-function(){
     tidyr::pivot_longer(everything(), names_to = "question_number", values_to = "question_name")
 }
 
-
+new_url<- list(
+  "https://docs.google.com/spreadsheets/d/1Aam2yf5hh_DvqoafmQlNIuztCn-nzbJnKiYR_g31tl0/edit?usp=sharing",
+  "https://docs.google.com/spreadsheets/d/1ujKH0FIz04lzD-kBphK2Vsv82iksvKMcWUB8l4nJbAA/edit?usp=sharing",
+  "https://docs.google.com/spreadsheets/d/1LAXQzcCV8uho2wzmV8MZT4UmamtfrvzzEkb970FSu7w/edit?usp=sharing"
+  
+)
 process_survey<-function(new_url, archive=FALSE){
   
   # This function fetches the survey results from their urls, tidies them and 
@@ -85,13 +90,46 @@ process_survey<-function(new_url, archive=FALSE){
       purrr::map2_df(.,
                      names(.),
                      ~ gsheet::gsheet2tbl(.x) %>% ### This takes that list and reads all the elements into a single dataframe
-                       dplyr::mutate(survey_number = .y)) %>%  ### With a single column added for the week of the survey from the supplied names
-      tidyr::pivot_longer(
-        # This combines all of the questions into a single column
-        cols = c(-survey_number, -Timestamp),
-        names_to = "question_name",
-        values_to = "response"
-      ) %>%
+                       dplyr::mutate(survey_number = .y))  ### With a single column added for the week of the survey from the supplied names
+      
+    
+    pivot_specific <- function(data, team=FALSE) {
+      # this is a little function which will handle the dataframes differently depending on the presence or absence of a team column
+      
+      
+      if(team){out<-data %>%
+        tidyr::pivot_longer(
+          # This combines all of the questions into a single column
+          cols = c(-survey_number,-Timestamp,-team),
+          names_to = "question_name",
+          values_to = "response"
+        )}
+      
+      if(!team){out<-data %>%
+        tidyr::pivot_longer(
+          # This combines all of the questions into a single column
+          cols = c(-survey_number,-Timestamp),
+          names_to = "question_name",
+          values_to = "response"
+        )}
+      return(out)
+      
+    }
+    
+
+
+  
+team_column <- "Please select your team"%in%colnames(results) # detects team column
+
+if(team_column){
+  long_results<-rename(results, team = "Please select your team")%>%
+    pivot_specific(team = T)
+}
+if(!team_column){
+  long_results<-pivot_specific(results, team = F)
+}
+
+    results<-long_results%>%
       dplyr::mutate(
         survey_number = as.numeric(survey_number),
         #Turns the week into a number
