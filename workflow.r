@@ -18,15 +18,21 @@ archive_path<-paste0("data/",tail(list.files("data"),1))
 archive<-readr::read_rds(path = archive_path)
 
 #List of new urls to process
-new_urls<-list("https://docs.google.com/spreadsheets/d/1Aam2yf5hh_DvqoafmQlNIuztCn-nzbJnKiYR_g31tl0/edit?usp=sharing")
+new_urls <-
+  list(
+    "https://docs.google.com/spreadsheets/d/1Aam2yf5hh_DvqoafmQlNIuztCn-nzbJnKiYR_g31tl0/edit?usp=sharing",
+    "https://docs.google.com/spreadsheets/d/1ujKH0FIz04lzD-kBphK2Vsv82iksvKMcWUB8l4nJbAA/edit?usp=sharing",
+    "https://docs.google.com/spreadsheets/d/1LAXQzcCV8uho2wzmV8MZT4UmamtfrvzzEkb970FSu7w/edit?usp=sharing"
+    
+  )
 # You can call the process_survey function directly and supply a list of urls.
-df<-process_survey(new_urls)
+df<-process_survey(new_urls,archive)
 
 #Create filename for today's archive
 todays_archive <- paste0("data/",Sys.Date(),"_archive.rds") # Create a string for the path to the archive file 
 
 #Save new archive
-readr::write_rds(archive,
+readr::write_rds(df,
                  path = todays_archive)
 
 
